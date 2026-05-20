@@ -24,8 +24,6 @@ body::before {
     radial-gradient(1px 1px at 88% 80%, rgba(255,255,255,0.35) 0%, transparent 100%),
     radial-gradient(1px 1px at 20% 85%, rgba(255,255,255,0.25) 0%, transparent 100%),
     radial-gradient(1px 1px at 65% 70%, rgba(255,255,255,0.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 42% 38%, rgba(255,255,255,0.2) 0%, transparent 100%),
-    radial-gradient(1px 1px at 92% 30%, rgba(255,255,255,0.4) 0%, transparent 100%),
     radial-gradient(1px 1px at 5% 50%, rgba(255,255,255,0.3) 0%, transparent 100%);
 }
 .container { max-width: 540px; margin: 0 auto; position: relative; z-index: 1; }
@@ -49,13 +47,20 @@ body::before {
 .progress-fill { height:100%; background:linear-gradient(90deg,#6bcb77,#ffd93d); border-radius:99px; transition:width 1s ease; }
 .section-title { font-size:11px; letter-spacing:0.18em; color:var(--text-dim); text-transform:uppercase; margin-bottom:1rem; animation:fadeDown 0.8s 0.25s ease both; }
 .calendar { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; animation:fadeDown 0.8s 0.3s ease both; }
-.day-box { aspect-ratio:1; background:var(--surface); border:1px solid var(--border); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--text-dim); cursor:default; transition:transform 0.15s ease,border-color 0.15s ease; position:relative; overflow:hidden; }
+.day-box {
+  aspect-ratio:1; background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  font-weight:700; color:var(--text-dim); cursor:default;
+  transition:transform 0.15s ease,border-color 0.15s ease;
+}
 .day-box.unlocked { cursor:pointer; color:var(--text); }
 .day-box.unlocked:hover { transform:scale(1.06); border-color:var(--accent2); }
 .day-box.opened { background:var(--surface2); border-color:var(--accent2); color:var(--accent2); }
 .day-box.today { border-color:var(--accent); color:var(--accent); animation:todayPulse 2s ease-in-out infinite; }
 @keyframes todayPulse { 0%,100% { box-shadow:0 0 0 0 rgba(255,107,107,0); } 50% { box-shadow:0 0 0 4px rgba(255,107,107,0.15); } }
-.lock-icon { font-size:14px; opacity:0.3; }
+.box-month { font-size:9px; opacity:0.5; letter-spacing:0.05em; line-height:1.4; }
+.box-day { font-size:15px; line-height:1.2; }
+.lock-icon { font-size:13px; opacity:0.25; }
 .modal-overlay { position:fixed; inset:0; background:rgba(10,9,20,0.85); backdrop-filter:blur(6px); z-index:100; display:flex; align-items:center; justify-content:center; padding:1.5rem; opacity:0; pointer-events:none; transition:opacity 0.25s ease; }
 .modal-overlay.active { opacity:1; pointer-events:all; }
 .modal { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:2rem 1.5rem; max-width:360px; width:100%; text-align:center; transform:scale(0.92); transition:transform 0.25s ease; }
@@ -68,19 +73,19 @@ body::before {
 .modal-challenge { font-size:14px; color:var(--text-mid); line-height:1.6; }
 .modal-close { margin-top:1.5rem; background:var(--surface2); border:1px solid var(--border); border-radius:99px; padding:0.6rem 1.6rem; font-family:var(--sans); font-size:13px; color:var(--text-mid); cursor:pointer; transition:border-color 0.15s,color 0.15s; }
 .modal-close:hover { border-color:var(--accent2); color:var(--accent2); }
-.now-label { text-align:center; font-size:11px; color:var(--text-dim); margin-top:2rem; letter-spacing:0.08em; animation:fadeDown 0.8s 0.4s ease both; }
+.now-label { text-align:center; font-size:11px; color:var(--text-dim); margin-top:2rem; letter-spacing:0.08em; }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="hero">
     <div class="hero-eyebrow">Free Day Countdown ✦</div>
-    <div class="hero-dday" id="dday-num">D-30</div>
-    <div class="hero-date">June 19, 2025 🎉</div>
+    <div class="hero-dday" id="dday-num">—</div>
+    <div class="hero-date">June 19, 2026 🎉</div>
     <div class="hero-weeks"><strong id="weeks-text">—</strong></div>
   </div>
   <div class="progress-wrap">
-    <div class="progress-labels"><span>5월 21일 출발</span><span id="prog-pct">0%</span></div>
+    <div class="progress-labels"><span>5월 20일 출발</span><span id="prog-pct">0%</span></div>
     <div class="progress-track"><div class="progress-fill" id="prog-bar" style="width:0%"></div></div>
   </div>
   <div class="section-title">매일 하나씩 열어봐 📬</div>
@@ -99,8 +104,29 @@ body::before {
   </div>
 </div>
 <script>
-const START = new Date(2025,4,21);
-const END   = new Date(2025,5,19);
+// 날짜를 YYYYMMDD 정수로만 다룸 — 시간대 문제 완전 차단
+const START_STAMP = 20260520; // 첫 번째 박스
+const END_STAMP   = 20260619; // D-day
+const TOTAL       = 30;       // 박스 수
+
+// 오늘 날짜를 YYYYMMDD 정수로
+function todayStamp() {
+  const n = new Date();
+  return n.getFullYear() * 10000 + (n.getMonth() + 1) * 100 + n.getDate();
+}
+
+// i번째 박스의 날짜를 YYYYMMDD 정수로
+function boxStamp(i) {
+  const d = new Date(2026, 4, 20 + i); // 로컬 날짜 생성
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+}
+
+// i번째 박스의 표시용 날짜
+function boxDisplayDate(i) {
+  const d = new Date(2026, 4, 20 + i);
+  return { month: d.getMonth() + 1, day: d.getDate() };
+}
+
 const CONTENT = [
   {emoji:"🌱",quote:"시작이 반이다. 나머지 반은 그냥 버티는 거야.",challenge:"오늘 딱 한 가지, 미뤄뒀던 일 5분만 해보기"},
   {emoji:"☕",quote:"좋은 하루는 좋은 커피 한 잔으로 시작된다. 아니어도 커피는 맛있다.",challenge:"오늘 좋아하는 음료 한 잔 사면서 나한테 선물하기"},
@@ -134,41 +160,30 @@ const CONTENT = [
   {emoji:"🎉",quote:"오늘이야!!! 드디어 Free Day! 오늘 하루 전부 누려.",challenge:"오늘만큼은 아무 챌린지 없음. 그냥 즐겨! 🥳"},
 ];
 
-function getLocalDateStamp(date) {
-  // YYYYMMDD 숫자로 변환 — 시간대 무관하게 날짜만 비교
-  return date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate();
-}
-
 function buildCalendar() {
   const cal = document.getElementById('calendar');
+  const ts = todayStamp();
   const openedKey = 'advent_opened_619';
   let opened = [];
   try { opened = JSON.parse(localStorage.getItem(openedKey) || '[]'); } catch(e) {}
   cal.innerHTML = '';
 
-  const now = new Date();
-  const todayStamp = getLocalDateStamp(now);
-
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < TOTAL; i++) {
+    const bs = boxStamp(i);
+    const { month, day } = boxDisplayDate(i);
     const box = document.createElement('div');
     box.className = 'day-box';
-    const boxDate = new Date(START.getFullYear(), START.getMonth(), START.getDate() + i);
-    const boxStamp = getLocalDateStamp(boxDate);
-    const dateLabel = `<span style="font-size:10px;opacity:0.6;display:block;line-height:1.2">${boxDate.getMonth()+1}월</span><span style="font-size:15px;line-height:1.2">${boxDate.getDate()}</span>`;
 
-    if (boxStamp === todayStamp) {
-      box.classList.add('unlocked', 'today');
-      if (opened.includes(i)) box.classList.add('opened');
-      box.innerHTML = dateLabel;
-      box.onclick = () => openBox(i, opened, openedKey);
-    } else if (boxStamp < todayStamp) {
-      box.classList.add('unlocked');
-      if (opened.includes(i)) box.classList.add('opened');
-      box.innerHTML = dateLabel;
-      box.onclick = () => openBox(i, opened, openedKey);
-    } else {
+    if (bs > ts) {
+      // 미래 — 잠금, 클릭 불가
       box.innerHTML = '<span class="lock-icon">🔒</span>';
-      box.onclick = null;
+    } else {
+      // 오늘 또는 과거 — 열림
+      box.classList.add('unlocked');
+      if (bs === ts) box.classList.add('today');
+      if (opened.includes(i)) box.classList.add('opened');
+      box.innerHTML = `<span class="box-month">${month}월</span><span class="box-day">${day}</span>`;
+      box.addEventListener('click', () => openBox(i, opened, openedKey));
     }
     cal.appendChild(box);
   }
@@ -176,8 +191,8 @@ function buildCalendar() {
 
 function openBox(idx, opened, openedKey) {
   const c = CONTENT[idx];
-  const date = new Date(START); date.setDate(date.getDate() + idx);
-  document.getElementById('modal-day').textContent = `Day ${idx+1} · ${date.getMonth()+1}월 ${date.getDate()}일`;
+  const { month, day } = boxDisplayDate(idx);
+  document.getElementById('modal-day').textContent = `${month}월 ${day}일`;
   document.getElementById('modal-emoji').textContent = c.emoji;
   document.getElementById('modal-quote').textContent = c.quote;
   document.getElementById('modal-challenge').textContent = c.challenge;
@@ -194,18 +209,33 @@ function closeModal(e) {
 }
 
 function updateHero() {
-  const now = new Date();
-  const diff = END - now;
-  const d = Math.max(0, Math.ceil(diff / 86400000));
-  document.getElementById('dday-num').textContent = d === 0 ? '🎉' : `D-${d}`;
-  const weeks = Math.floor(d / 7), days = d % 7;
-  let wt = d === 0 ? '오늘이 바로 그날! 🎊' : weeks > 0 && days > 0 ? `${weeks}주 ${days}일 남음` : weeks > 0 ? `딱 ${weeks}주 남음` : `${days}일 남음`;
+  const n = new Date();
+  const ts = todayStamp();
+
+  // D-day 계산 (날짜 기준)
+  const todayDate = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  const endDate   = new Date(2026, 5, 19);
+  const diffDays  = Math.round((endDate - todayDate) / 86400000);
+  document.getElementById('dday-num').textContent = diffDays <= 0 ? '🎉' : `D-${diffDays}`;
+
+  const weeks = Math.floor(diffDays / 7), days = diffDays % 7;
+  let wt = diffDays <= 0 ? '오늘이 바로 그날! 🎊'
+         : weeks > 0 && days > 0 ? `${weeks}주 ${days}일 남음`
+         : weeks > 0 ? `딱 ${weeks}주 남음`
+         : `${days}일 남음`;
   document.getElementById('weeks-text').textContent = wt;
-  const total = END - START, elapsed = now - START;
-  const pct = Math.min(100, Math.max(0, elapsed / total * 100));
+
+  // 진행바: 날짜 기준 (5/21=0%, 6/19=100%)
+  const startDate = new Date(2026, 4, 20);
+  const totalDays = Math.round((endDate - startDate) / 86400000); // 29
+  const elapsedDays = Math.max(0, Math.round((todayDate - startDate) / 86400000));
+  const pct = Math.min(100, (elapsedDays / totalDays * 100));
   document.getElementById('prog-pct').textContent = pct.toFixed(1) + '%';
   document.getElementById('prog-bar').style.width = pct + '%';
-  document.getElementById('now-label').textContent = new Intl.DateTimeFormat('ko-KR',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',weekday:'short'}).format(now);
+
+  document.getElementById('now-label').textContent = new Intl.DateTimeFormat('ko-KR',{
+    year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit', weekday:'short'
+  }).format(n);
 }
 
 buildCalendar();
